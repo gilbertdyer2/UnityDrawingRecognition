@@ -1,10 +1,16 @@
 
 # Drawing Recognition
+
+When used with custom created character libraries that are designed thoughtfully around differentiating stored characters, this tool should have near-perfect accuracy.
+
+##
 [Setup](#setup)
 - [Basic Setup](#basic-setup)
 - [Creating Custom Libraries and Characters](#creating-custom-libraries-and-characters)
 
 [How it Works](#how-it-works)
+- [GridMap](#GridMap)
+
 
 [Documentation](#documentation)
 - [General Methods](#general-methods)
@@ -14,10 +20,12 @@
 ## Setup
 ### Basic Setup
 To set up basic recognition functionality with the provided character libraries, you'll need to do the following:
-1. Drag your main camera to the 'Camera' field of the MouseTracker script.
-2. Set the draw area by dragging a 2D collider to the 'Draw Surface' of the Drawing Recognition script. Alternatively, if this is set to none, drawing will be possible anywhere.
-3. If your project has a static 2D backdrop, set the field 'Duck Point Z Value' to a Z value that lies behind the backdrop from the perspective of the camera. This is optional, but gets rid of the connecting lines between separately drawn segments.
-4. In a separate script, implement controls to clear the drawing and get matches to it (examples below)
+
+1. Download ' ' and drag it into the scene as a prefab. Then select it to view its fields.
+2. Drag your main camera to the 'Camera' field of the MouseTracker script.
+3. Set the draw area by dragging a 2D collider to the 'Draw Surface' field of the Drawing Recognition script. Alternatively, if this is set to none, drawing will be possible anywhere on-screen.
+4. If your project has a static 2D backdrop, set the field 'Duck Point Z Value' to a Z value that lies behind the backdrop from the perspective of the camera. This is optional, but gets rid of the connecting lines between separately drawn segments.
+5. In a separate script, implement controls to clear the drawing and get matches to it (examples below)
 
 	#### Ex.1 With Hotkeys:
 	```c#
@@ -45,15 +53,15 @@ To set up basic recognition functionality with the provided character libraries,
 	```
 	*(Alternatively, calling GetMatch() on mouse up and implementing ClearDrawing() separately supports multi-stroke drawings and consistently tracks the current match during runtime.)*
 
-After this, you should be able to draw on-screen, clear the drawing, and view what matches are found to your drawings through the debug log's output.
+After this, you should be able to draw on-screen, clear the drawing, and view the matches that are found to your drawings through the debug log's output when the GetMatch() is pressed.
 
-The rest of the setup is mostly dependent on the project you implement this to. From here, you could add your own libraries of custom characters (explained further below), or add support for player-sided custom character creation during runtime through the AddDrawingToLib() method. 
+The rest of the setup is dependent on the project you implement this to. From here, you could add your own libraries of custom characters (explained further below), or even add support for player-sided custom character creation during runtime through the AddDrawingToLib() method. 
 
 
 ### Creating Custom Libraries and Characters
-A large feature this project aims to support is the the ability to store prefabricated libraries of custom drawings/characters that are accessible during runtime. Prefabbed libraries are structured as initializer methods that load their stored characters onto an input character library. You can view the included initializers near the bottom of the 'DrawingRecognition' script for reference.
+A large feature this project aims to support is the the ability to store prefabricated libraries of custom drawings/characters that are accessible during runtime. In the DrawingRecognition script, prefabbed libraries are structured as initializer methods that load their stored characters onto an input character library. You can view the included initializers near the bottom of the script for reference.
 
-Before creating a custom library, it is first recommended to set up a hotkey to 'PrintCurCharacter()'. This copies a code snippet to your clipboard that stores the current drawing and initializes it as a character when ran in an initializer. 
+Before creating a custom library, it is first recommended to set up a hotkey to 'PrintCurCharacter()'. This copies a code snippet to your clipboard that stores the current drawing and initializes it as a character when pasted into and ran in an initializer. 
 
 Next, you'll need to create an empty initializer method in the DrawingRecognition script to paste this into. (shown below)
 ```c#
@@ -63,7 +71,7 @@ public void InitializerExample(CharacterLibrary charLib) {
 	
 }
 ```
-After pasting your prefabs, you need to create a library setup method and call it in Awake(). This method will handle the initial setup of the character libraries and the adjustable parameters used in comparisons. 
+After pasting your prefabs, you'll need to create a library setup method and call it in Awake(). This method will handle the initial setup of the character libraries and the adjustable parameters used in comparisons. 
 
 Copy the example below and edit the middle block according to the name of your initializer method and the desired name of your library. 
 
@@ -97,56 +105,70 @@ Running this name or reference through a switch case statement will then let you
 
 ## How it Works
 
-When a drawing is converted to a character, it is stored as an instance of the “Bitmap” class. A Bitmap converts the points of a drawing into four different map-like representations: the **GridMap, CircleMap, HorizontalMap, and VerticalMap**. These representations each feature their own setup process and comparison score calculations. When two Bitmaps are compared, all four of these scores are multiplied by a set weight value then summed to even out each map's individual strengths and weaknesses.
+When a drawing is converted to a character, it is stored as an instance of the “Bitmap” class. A Bitmap converts the points of a drawing into four different map-like representations: a **GridMap, CircleMap, HorizontalMap, and VerticalMap**. These representations each feature their own processes for creation and comparison score calculations. When two Bitmaps are compared, all four of these scores are multiplied by a set weight value then summed to even out each map's individual strengths and weaknesses.
 
-### GridMap:
+In general, GridMap works well for distorted characters that are squished or stretched, but is less effective for characters that   are prone to off-center like 'T'.
+
+
+*Note: The variable 'n' referred to in each of the following overviews is the 'precision' value set in the DrawingRecognition script, set to 3 by default.*
+##
+### The GridMap:
 
 1. Obtain the points of the drawing
 2. Find the bounding values of the drawing and take the left and bottom bounds as the new origin for each axis
 3. Divide the vertical axis into n slices of equal area
 4. Divide the horizontal axis into n slices of equal area
 
+![](./BitmapVisualReferences/GridMapVisual.png)
+
 Now, we assign each cell of the created grid a value equal to the percentage of points it contains out of the entire drawing. This results in a grid that represents the distribution of points of the drawing.
 
 To use this for character recognition, we take the mean squared error between two characters' GridMaps as a comparison score. To calculate this, we compare the two GridMaps at each cell, adding the squared difference between each pair of cells to a total error score. Then, we divide the total error by the number of cells (n * n) to obtain a normalized score between the two maps, where a lower score means a more likely match.
-
-Pros:
- - Good for distorted characters that are squished or stretched
-
-### CircleMap:
+##
+### The CircleMap
 
 1. Calculate the geometric median of all points in the drawing, and the furthest point from it
 2. Draw a circle centered around the median point, with a radius extending to the furthest point
 3. Divide the circle into n rings of equal thickness
 4. Divide each ring into quadrants
 
+![](./BitmapVisualReferences/CircleMapVisual.png)
+
 Like the GridMap, we assign each quadrant a value equal to the percentage of points it contains out of the entire drawing to obtain a representation of the distribution of points. 
 
-We also use the same mean squared error score calculation as the GridMap, however, instead of comparing pairs of cells, we compare pairs of quadrants.
-
-### HorizontalMap
+For score calculation, we use the same mean squared error method as the GridMap. However, instead of comparing pairs of cells, we compare pairs of quadrants.
+##
+### The HorizontalMap
 
 For the HorizontalMap and VerticalMap, we take into account the order points are drawn in
 1. Obtain the points of the drawing and their drawn order
-2. Starting from the first point, start a line segment, ending it and and beginning a new one whenever the trend of the points in the y direction changes
-3. Divide the vertical axis into (n * n) slices of equal area
-4. Obtain an array of values representing the number of lines that intersect with each slice
+2. Start a line segment from the first point, ending it and and beginning a new one whenever the trend of the points in the x direction changes
+3. Divide the drawing into (n * n) vertical slices of equal area
+4. Obtain an array of values representing the number of lines that intersect with each vertical slice
 
+![](./BitmapVisualReferences/HorizontalMapVisual.png)
 
-Array representation of this HorizontalMap: {}
-In short, this method simplifies the drawing into lines, then flattens it into a 1D representation of the distribution of points along the horizontal axis. This approach is especially robust for characters, as most common characters can be easily simplified down into lines and curves.
-To calculate a comparison score, we take 2 characters' respective arrays representing 
+*Array representation of this HorizontalMap: {1, 2, 2, 2, 2, 2, 2, 2, 2}*
 
-### VerticalMap
+In short, this representation simplifies the drawing into lines, then flattens it into a 1D representation of the distribution of points along the horizontal axis. This approach is especially effective for common characters and shapes, as most of these can be easily simplified down into lines and curves.
+
+To calculate a HorizontalMap comparison score, we take two characters' HorizontalMap arrays, and compare their values at every index. If the values at an index are not equal, we increment total error score by '(1 / total # of slices)', effectively the percentage of the drawing that index represents. To ensure off-center drawings are taken into account, we also offset one of the array's indices by 1 to the left or right and compare again, repeating this n times to the left and n times to the right. After these comparisons, we use the lowest error score out of the initial and offset calculations as our final comparison score.
+##
+### The VerticalMap
 
 
 1. Obtain the points of the drawing and their drawn order
 2. Starting from the first point, start a line segment, ending it and and beginning a new one whenever the trend of the points in the y direction changes
-3. Divide the vertical axis into (n * n) slices of equal area
+3. Divide the drawing into (n * n) horizontal slices of equal area
 4. Obtain an array of values representing the number of lines that intersect with each slice
+
 ![](./BitmapVisualReferences/VerticalMapVisual.png)
+
 *Array representation of this VerticalMap: {1, 1, 1, 1, 2, 2, 2, 2, 2}*
 
+The comparison score calculation for the VerticalMap is conceptually identical to. 
+
+It may be worth noting that when tested with the lowercase alphabet, the VerticalMap was slightly less reliable compared to the HorizontalMap. If you notice a significant drop in recognition success involving characters that may be more variable in the vertical axis, try reducing the VerticalMap's weight value with SetWeights().
 ## Documentation
 
 
@@ -160,7 +182,7 @@ To calculate a comparison score, we take 2 characters' respective arrays represe
 | void     | ShowDrawing(bool inp)    | Shows (true) or Hides (false) the drawn line (visual change only).     |
 |void  	|EnableDrawing(bool  inp)	|Enables (true) or Disables (false) checks for drawing controls within MouseTracker.	|
 | void     | SetWeights(double circleMapWeight, double gridMapWeight, double horizontalMapWeight, double verticalMapWeight)    | Sets the weights applied to each bitmap during comparison score calculation. Recommended to keep as (1.0, 1.0, 1.0, 1.0) unless certain maps do not work as well for a use case.   |
-| void     | SetPrecision(int input)    | Updates the precision/width of stored bitmaps in current library    |
+| void     | SetPrecision(int input)    | Updates the precision/width of stored bitmaps in current library. *3 is recommended for most applications.*    |
 |void 	|AddDrawingToLib(string charName)	|Creates a character from the current drawing and adds it to the current library	|
 |void 	|AddDrawingToLib(string charName, CharacterLibrary charLib)	|Creates a character from the current drawing and adds it to a specified library	|
 | void     | AddCharToLib(Character character)    | Adds a character to the current library    |
@@ -188,8 +210,7 @@ To calculate a comparison score, we take 2 characters' respective arrays represe
 ### Debug and Print Methods:
 | Type | Method | Description |
 |-----------------|------------------|-----------------|
-|string	 |PrintCurCharacter()	 |Returns a code snippet to initialize the current drawing as a prefabbed character. If called in the Unity editor during runtime, copies the string to the clipboard. Paste the returned string inside a character library initializer method in the DrawingRecognition script.	
- | 
+|string	 |PrintCurCharacter()	 |Returns a code snippet to initialize the current drawing as a prefabbed character. If called in the Unity editor during runtime, copies the string to the clipboard. Paste the returned string inside a character library initializer method in the DrawingRecognition script.	| 
 |string  	|PrintCharacterLibrary()	|Returns a code snippet to initialize all characters in the current library as prefabbed characters. If called in the Unity editor during runtime, copies the string to the clipboard. Paste the returned string inside a character library initializer method in the DrawingRecognition script.	|
 |void	|PrintGridMap(Bitmap  bitmap)	|Prints the 2D GridMap representation of the current drawing. Note that if working correctly, cell values should sum (very close) to 1.	|
 |void  	|PrintCircleMap(Bitmap  bitmap)	|Prints the 2D circle map representation stored by a bitmap. Each ring of the map is printed in order from inner to outer ring as 2x2 group of values.	|
