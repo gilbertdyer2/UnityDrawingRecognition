@@ -144,7 +144,7 @@ To calculate a comparison score, we take 2 characters' respective arrays represe
 2. Starting from the first point, start a line segment, ending it and and beginning a new one whenever the trend of the points in the y direction changes
 3. Divide the vertical axis into (n * n) slices of equal area
 4. Obtain an array of values representing the number of lines that intersect with each slice
-![enter image description here](https://photos.google.com/share/AF1QipMmVaRLXCh9hFaaJL_gYqJYgma-CxLk-T_wqLVZZSmqiahYFSZEijP1KjZMzfnqVw/photo/AF1QipPIU_mtV9vRs1icaJ5xbF5cFJvJRJ08kqgnQp5k?key=dGhad3VxTy1XSHRTNVItNEtKVVRyYmlEdVh1ZGpB)
+![](./BitmapVisualReferences/VerticalMapVisual.png)
 *Array representation of this VerticalMap: {1, 1, 1, 1, 2, 2, 2, 2, 2}*
 
 ## Documentation
