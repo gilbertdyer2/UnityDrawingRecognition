@@ -1,7 +1,14 @@
 
 # Drawing Recognition
+![](./thumbnail.png)
 
-When used with custom created character libraries that are designed thoughtfully around differentiating stored characters, this tool should have near-perfect accuracy.
+This is an algorithm and tool developed to enable drawn character and drawing recognition in Unity. It can be incorporated into projects and adapted for features such as gesture-based mouse controls, handwriting-to-text, and general recognition of a user's mouse patterns. The algorithm itself can also be used as a general approach to character and drawing recognition outside of Unity.
+
+Unlike other approaches that typically involve machine learning, this approach does not require large amounts of drawn input data on characters, human feedback, or training time. Instead, creating new characters and adding characters during runtime only requires a single drawn example. This makes it fairly easy to create your own libraries of custom characters after setup and incorporate mechanics that allow users to modify or add to these libraries during runtime.
+
+Generally, when recognition is used with custom drawn libraries designed around characters that are relatively differentiated, this tool has near-perfect accuracy. 
+
+In addition, it should be extremely cheap to run based on current testing.
 
 ##
 [Setup](#setup)
@@ -9,14 +16,19 @@ When used with custom created character libraries that are designed thoughtfully
 - [Creating Custom Libraries and Characters](#creating-custom-libraries-and-characters)
 
 [How it Works](#how-it-works)
-- [GridMap](#GridMap)
+- [GridMap](#the-gridmap)
+- [CircleMap](#the-circlemap)
+- [HorizontalMap](#the-horizontalmap)
+- [VerticalMap](#the-verticalmap)
 
 
 [Documentation](#documentation)
 - [General Methods](#general-methods)
 - [Prefabbed Library Initializers](#prefabbed-character-library-initializers)
 - [Debug and Print Methods](#debug-and-print-methods)
-- [Overview of Other Classes](#brief-overview-of-other-classes-used-in-drawingrecognition)
+- [Overview of Other Included Classes](#brief-overview-of-other-classes-used-in-drawingrecognition)
+
+[Notes on Possible Issues](#notes-on-possible-issues-you-may-experience)
 ## Setup
 ### Basic Setup
 To set up basic recognition functionality with the provided character libraries, you'll need to do the following:
@@ -105,6 +117,11 @@ Running this name or reference through a switch case statement will then let you
 
 ## How it Works
 
+Character recognition is a tough problem. Currently, the most reliable method is through machine learning, which typically requires large amounts of drawn training data.
+
+The algorithm ignores the drawn order of points, as the order a character is drawn in can vary from person to person. As such, for use cases where order is important (e.g. gesture-based controls) and accuracy is highly valued, you may want to use a different approach (the [1$ Recognizer](https://depts.washington.edu/acelab/proj/dollar/index.html) great for this).
+
+
 When a drawing is converted to a character, it is stored as an instance of the “Bitmap” class. A Bitmap converts the points of a drawing into four different map-like representations: a **GridMap, CircleMap, HorizontalMap, and VerticalMap**. These representations each feature their own processes for creation and comparison score calculations. When two Bitmaps are compared, all four of these scores are multiplied by a set weight value then summed to even out each map's individual strengths and weaknesses.
 
 In general, GridMap works well for distorted characters that are squished or stretched, but is less effective for characters that   are prone to off-center like 'T'.
@@ -113,7 +130,9 @@ In general, GridMap works well for distorted characters that are squished or str
 *Note: The variable 'n' referred to in each of the following overviews is the 'precision' value set in the DrawingRecognition script, set to 3 by default.*
 ##
 ### The GridMap:
+This results in a grid that represents the distribution of points of the drawing.
 
+**Strategy:**
 1. Obtain the points of the drawing
 2. Find the bounding values of the drawing and take the left and bottom bounds as the new origin for each axis
 3. Divide the vertical axis into n slices of equal area
@@ -121,12 +140,17 @@ In general, GridMap works well for distorted characters that are squished or str
 
 ![](./BitmapVisualReferences/GridMapVisual.png)
 
-Now, we assign each cell of the created grid a value equal to the percentage of points it contains out of the entire drawing. This results in a grid that represents the distribution of points of the drawing.
+Now, we assign each cell of the created grid a value equal to the percentage of points it contains out of the entire drawing. The result is a 2D array that will look similar to the following for the letter 'b':
+
+| 0.167    | 0.0   | 0.0   | 
+|-----------------|------------------|-----------------|
+| 0.225   | 0.069   | 0.069   | 
+| 0.225   | 0.069   | 0.179   | 
 
 To use this for character recognition, we take the mean squared error between two characters' GridMaps as a comparison score. To calculate this, we compare the two GridMaps at each cell, adding the squared difference between each pair of cells to a total error score. Then, we divide the total error by the number of cells (n * n) to obtain a normalized score between the two maps, where a lower score means a more likely match.
 ##
 ### The CircleMap
-
+**Strategy:**
 1. Calculate the geometric median of all points in the drawing, and the furthest point from it
 2. Draw a circle centered around the median point, with a radius extending to the furthest point
 3. Divide the circle into n rings of equal thickness
@@ -134,13 +158,31 @@ To use this for character recognition, we take the mean squared error between tw
 
 ![](./BitmapVisualReferences/CircleMapVisual.png)
 
-Like the GridMap, we assign each quadrant a value equal to the percentage of points it contains out of the entire drawing to obtain a representation of the distribution of points. 
+Like the GridMap, we assign each quadrant a value equal to the percentage of points it contains out of the entire drawing. The CircleMap is structured as a 2D array where each primary index represents a ring and each secondary index represents the quadrant values within the ring. The CircleMap of the letter 'b', should look similar to the following:
 
-For score calculation, we use the same mean squared error method as the GridMap. However, instead of comparing pairs of cells, we compare pairs of quadrants.
+Ring 1 (Innermost):
+|0.153  |0.102  |
+|--|--|
+|0.093  |0.025  |
+Ring 2:
+|0.119  |0.000  |
+|--|--|
+|0.280  |0.110  |
+Ring 3:
+|0.119  |0.000  |
+|--|--|
+|0.000  |0.000  |
+
+
+For score calculation, we use the same mean squared error method as the GridMap, comparing quadrants instead of cells.
 ##
 ### The HorizontalMap
 
-For the HorizontalMap and VerticalMap, we take into account the order points are drawn in
+*Note: the next two maps take into account the order points are drawn in, but only for line simplification; the drawn order still ends up having a negligible affect on comparison scores*
+
+The HorizontalMap first simplifies the drawing into horizontal lines, then flattens the drawing into a 1D representation of the amount of lines across the horizontal axis.
+
+**Strategy:**
 1. Obtain the points of the drawing and their drawn order
 2. Start a line segment from the first point, ending it and and beginning a new one whenever the trend of the points in the x direction changes
 3. Divide the drawing into (n * n) vertical slices of equal area
@@ -150,13 +192,17 @@ For the HorizontalMap and VerticalMap, we take into account the order points are
 
 *Array representation of this HorizontalMap: {1, 2, 2, 2, 2, 2, 2, 2, 2}*
 
-In short, this representation simplifies the drawing into lines, then flattens it into a 1D representation of the distribution of points along the horizontal axis. This approach is especially effective for common characters and shapes, as most of these can be easily simplified down into lines and curves.
+This approach is especially effective for common characters and shapes, as most of these can be easily simplified into down lines and curves.
 
-To calculate a HorizontalMap comparison score, we take two characters' HorizontalMap arrays, and compare their values at every index. If the values at an index are not equal, we increment total error score by '(1 / total # of slices)', effectively the percentage of the drawing that index represents. To ensure off-center drawings are taken into account, we also offset one of the array's indices by 1 to the left or right and compare again, repeating this n times to the left and n times to the right. After these comparisons, we use the lowest error score out of the initial and offset calculations as our final comparison score.
+To calculate a HorizontalMap comparison score, we compare two HorizontalMap arrays at every index. If the values of the arrays at an index are not equal, we increment the total error score by '(1 / total # of slices)', effectively the percentage of the drawing that index represents. 
+
+To ensure off-center drawings are taken into account, we also offset one of the array's indices to the right or left and compare again, repeating this n times to the left and n times to the right. After this, we take the lowest error out of all the comparisons as our final score.
 ##
 ### The VerticalMap
 
+The VerticalMap is conceptually identical to the HorizontalMap, the only difference being that it simplifies the drawing into vertical lines as opposed to horizontal.
 
+**Strategy:**
 1. Obtain the points of the drawing and their drawn order
 2. Starting from the first point, start a line segment, ending it and and beginning a new one whenever the trend of the points in the y direction changes
 3. Divide the drawing into (n * n) horizontal slices of equal area
@@ -166,7 +212,7 @@ To calculate a HorizontalMap comparison score, we take two characters' Horizonta
 
 *Array representation of this VerticalMap: {1, 1, 1, 1, 2, 2, 2, 2, 2}*
 
-The comparison score calculation for the VerticalMap is conceptually identical to. 
+The comparison score calculation for the VerticalMap is identical to the HorizontalMap. 
 
 It may be worth noting that when tested with the lowercase alphabet, the VerticalMap was slightly less reliable compared to the HorizontalMap. If you notice a significant drop in recognition success involving characters that may be more variable in the vertical axis, try reducing the VerticalMap's weight value with SetWeights().
 ## Documentation
@@ -182,7 +228,7 @@ It may be worth noting that when tested with the lowercase alphabet, the Vertica
 | void     | ShowDrawing(bool inp)    | Shows (true) or Hides (false) the drawn line (visual change only).     |
 |void  	|EnableDrawing(bool  inp)	|Enables (true) or Disables (false) checks for drawing controls within MouseTracker.	|
 | void     | SetWeights(double circleMapWeight, double gridMapWeight, double horizontalMapWeight, double verticalMapWeight)    | Sets the weights applied to each bitmap during comparison score calculation. Recommended to keep as (1.0, 1.0, 1.0, 1.0) unless certain maps do not work as well for a use case.   |
-| void     | SetPrecision(int input)    | Updates the precision/width of stored bitmaps in current library. *3 is recommended for most applications.*    |
+| void     | SetPrecision(int input)    | Updates the precision/width of stored bitmaps in current library. *3 is recommended for most applications; a higher precision does not necessarily mean higher recognition accuracy*    |
 |void 	|AddDrawingToLib(string charName)	|Creates a character from the current drawing and adds it to the current library	|
 |void 	|AddDrawingToLib(string charName, CharacterLibrary charLib)	|Creates a character from the current drawing and adds it to a specified library	|
 | void     | AddCharToLib(Character character)    | Adds a character to the current library    |
@@ -217,9 +263,9 @@ It may be worth noting that when tested with the lowercase alphabet, the Vertica
 |void  	|PrintCoMCircleMap(Bitmap  bitmap)	|Prints the 2D circle map representation stored by a bitmap, using the center of mass as the centerpoint instead of the geometric median used by default. Each ring of the map is printed in order from inner to outer ring as 2x2 group of values. Use this for comparing the effectiveness of the two centerpoints.	|
 |void  	|PrintFlatMapHorizontal(Bitmap  bitmap)	|Prints the horizontal FlatMap representation stored by a bitmap. 	|
 |void  	|PrintFlatMapVertical(Bitmap  bitmap)	|Prints the vertical FlatMap representation stored by a bitmap.	|
-
+##
 ### Brief Overview of Other Classes used in DrawingRecognition 
-*(These are model classes you are not required to interact with, but may potentially end up editing in case you want to add to or modify the behavior of a class, or find a bug. Documentation for each of these classes is can be found within their respective scripts)*
+*(These are model classes you are not required to interact with, but may potentially end up editing in case you want to add to or modify the behavior of a class, or find a bug. Additional documentation for each of these classes can be found within their respective scripts)*
 
 **Bitmap:** Stores the points of a drawing and various map representations of it for usage during comparison. Handles calculations of raw comparison scores between Bitmaps.
 
@@ -229,7 +275,21 @@ It may be worth noting that when tested with the lowercase alphabet, the Vertica
 
   
   
-  
-  
+  ##
+## Notes on Possible Issues you may Experience
+
+
+
+**The accuracy for certain characters is low:**
+- To diagnose if a specific map representation is causing this, uncomment the Debug.Log print at the bottom of the GetScore() method in the CharacterLibrary script to view the individual comparison scores returned by each map for every character during comparison.
+
+- Long and extremely straight characters (e.g. 'i' and 'l') are much more likely to be confused. In the specific case of 'i' and 'l' these characters are unfortunately just very similar overall. To raise the accuracy, you could try recreating the problem characters with more exaggerated features, or try adjusting the weights of HorizontalMap, VerticalMap, or possibly GridMap. Additionally, if you are using a precision value that is even, try switching to one of the closest odd values.
+
+- Characters like 't' may be confused with characters similar to 'r'. This is due to t's where the two protrusions are not of equal length, which causes the GridMap representation to be off-center. Try lowering the GridMap weights with SetWeights() to help remedy this issue. In the future, I may work on supporting individual map weights for each character as a more permanent solution.
+
+**Accuracy is lower when the mouse moves fast / There are gaps in the points being stored by the mouse**
+- This occurs at lower framerates; if you experience this in the editor when trying to create a custom character prefab, try drawing slowly and at a steady speed. 
+
+- If low framerates are inevitable or required both in the editor and during play, you can try to remedy this by adding extra versions of characters that are drawn at a lower framerate that match the expected "pace" you expect people to draw at for each section of the character.
 
 
