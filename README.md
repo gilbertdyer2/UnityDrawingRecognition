@@ -179,14 +179,19 @@ A 2D radial grid representing the distribution of points of a drawing.
 Like the GridMap, we assign each quadrant a value equal to the percentage of points it contains out of the entire drawing. The CircleMap is structured as a 2D array where each primary index represents a ring and each secondary index represents the quadrant values within the ring. The CircleMap of the letter 'b', will look similar to the following:
 
 Ring 1 (Innermost):
+
 |0.153  |0.102  |
 |--|--|
 |0.093  |0.025  |
+
 Ring 2:
+
 |0.119  |0.000  |
 |--|--|
 |0.280  |0.110  |
+
 Ring 3:
+
 |0.119  |0.000  |
 |--|--|
 |0.000  |0.000  |
