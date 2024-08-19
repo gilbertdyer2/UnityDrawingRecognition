@@ -174,7 +174,7 @@ public class Bitmap
     
     // Returns float of match likelihood, based on mean squared error.  
     public float GridCompareTo(Bitmap bitmapRef) {
-        if (bitmapRef == null || this.width != bitmapRef.width)
+        if (bitmapRef == null || this.width != bitmapRef.width) 
             return 100; // Return arbitrality large val
 
         // Tracks total difference between each point
@@ -182,7 +182,6 @@ public class Bitmap
         for (int i = 0; i < width; i++) {
             for (int k = 0; k < width; k++) {
                 float diff = Math.Abs(gridMap[i,k] - bitmapRef.gridMap[i,k]);
-
                 totalSqError += diff * diff;
             }
         }
@@ -343,7 +342,7 @@ public class Bitmap
     #region GridBitMap
     // Converts a list of Vector2 points to a GridMap
     private float[,] VecToGridMap(List<Vector2> input) {
-        if (input == null) {
+        if (input == null || input.Count == 0) {
             return new float[width, width]; // Return empty
         }
             

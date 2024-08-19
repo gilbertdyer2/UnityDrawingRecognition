@@ -81,8 +81,8 @@ public class CharacterLibrary
     private static Character Empty; // Definition for an empty character
     private static void InitializeEmptyDef() {
         // Create empty vector list defs
-        List<Vector2> emptyVec2 = new List<Vector2>{new Vector2(0f, 0f), new Vector2(0f, 0f)}; 
-        List<Vector3> emptyVec3 = new List<Vector3>{new Vector3(0f, 0f, 0f), new Vector3(0f, 0f, 0f)}; 
+        List<Vector2> emptyVec2 = new List<Vector2>(); 
+        List<Vector3> emptyVec3 = new List<Vector3>();
 
  	 	Empty = new Character(new Bitmap(emptyVec2, emptyVec3, 4 ), "Empty");
     }
